@@ -6,3 +6,12 @@ spark/perf_results.json
 __pycache__/
 *.pyc
 .DS_Store
+
+# LaTeX 构建产物
+report/*.aux
+report/chapters/*.aux
+report/*.log
+report/*.toc
+report/*.out
+report/*.synctex.gz
+report/missfont.log
