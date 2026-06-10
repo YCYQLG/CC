@@ -15,3 +15,6 @@ report/*.toc
 report/*.out
 report/*.synctex.gz
 report/missfont.log
+
+# 含凭据的一次性脚本，不入库
+scripts/set_github_secrets.py

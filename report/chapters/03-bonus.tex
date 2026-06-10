@@ -59,9 +59,13 @@ $\to$ 滚动更新 K8s Deployment"端到端流水线（\lstinline!.github/workfl
 触发后依次执行：Checkout 代码 $\to$ 用 git 短 SHA 生成镜像 Tag $\to$ 登录 SWR
 $\to$ \lstinline!docker build --provenance=false! 构建并推送后端镜像 $\to$ 用
 base64 解码的 KubeConfig 配置 kubectl $\to$ \lstinline!kubectl set image! 滚动更新
-backend Deployment 并验证。仓库 Secrets 配置了 \lstinline!SWR_AK!、\lstinline!SWR_SK!
-（SWR 登录密钥）、\lstinline!KUBE_CONFIG!（base64 编码的 kubeconfig）。流水线各阶段
-全部 Passed、Deployment 镜像 Tag 自动更新见图~\ref{fig:cicd1}、\ref{fig:cicd2}。
+backend Deployment 并验证。仓库 Secrets 通过 GitHub API（PyNaCl sealed box 加密）
+自动写入 \lstinline!SWR_AK!、\lstinline!SWR_SK!（SWR 登录密钥）、\lstinline!KUBE_CONFIG!
+（base64 编码的 kubeconfig）。实际运行结果：流水线 7 个步骤在约 60\,s 内\textbf{全部
+Passed}，后端 Deployment 镜像 Tag 由 \lstinline!v1! \textbf{自动更新为 git 短 SHA
+\lstinline!backend:ed09fde!}，并滚动出一个运行新镜像的 Pod，验证了从代码提交到集群
+部署的端到端自动化（GitHub 托管 runner 可直连华为云 SWR 与 CCE 公网 API）。各阶段
+Passed 与镜像更新见图~\ref{fig:cicd1}、\ref{fig:cicd2}。
 
 \shot{cicd_actions_passed.png}{GitHub Actions 流水线各阶段全部 Passed}{fig:cicd1}
 \shot[0.8]{cicd_image_updated.png}{Deployment 镜像 Tag 已自动更新为 git SHA}{fig:cicd2}
@@ -101,15 +105,17 @@ rendezvous；分布式模式下用 headless Service 让 Worker 通过稳定 DNS 
 \toprule
 模式 & Worker 数 & 训练时间(s) & 加速比 \\
 \midrule
-单机     & 1 & \texttt{<T1>} & 1.00$\times$ \\
-分布式 DDP & 2 & \texttt{<T2>} & \texttt{<S>}$\times$ \\
+单机     & 1 & 148.27 & 1.00$\times$ \\
+分布式 DDP & 2 & 79.70  & 1.86$\times$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
+实验结果：单机训练耗时 \textbf{148.27\,s}、吞吐 809 samples/s；2 Worker 分布式
+（实际调度为每节点 1 个 Pod，真正跨节点）耗时 \textbf{79.70\,s}、吞吐 1506 samples/s，
+\textbf{加速比 1.86$\times$}（扩展效率约 93\%）。两种模式最终测试准确率分别为
+98.80\% 与 98.69\%，几乎相同，说明分布式训练在近乎线性提速的同时保持了模型精度。
 训练 Pod 运行情况与 \lstinline!##RESULT##! 输出见图~\ref{fig:ddppods}、\ref{fig:ddpresult}。
-两种模式最终测试准确率均约 \texttt{<ACC>}\%，说明分布式训练在缩短时间的同时保持了
-模型精度。
 
 \shot{ddp_pods.png}{分布式训练 master + worker Pod 运行}{fig:ddppods}
 \shot{ddp_result.png}{单机与分布式训练时间与准确率对比输出}{fig:ddpresult}
@@ -139,10 +145,16 @@ Worker 组成环，梯度切成 N 份，经过 $2(N-1)$ 步的"scatter-reduce + 
 
 \subsection{批判性思考}
 
-本实验在 2 核 CPU 小规模下，分布式相对单机的加速比通常\textbf{达不到理想的 2$\times$}，
-原因与 A-3 的 Amdahl 分析一脉相承：MNIST 模型小、每步计算量有限，而每个 step 都要做一次
-跨 Pod 的梯度 AllReduce，gloo over TCP 的通信延迟在 CPU 集群上相对计算并不可忽略；此外
-还有数据加载、进程会合、barrier 同步等串行开销。这提示我们：\textbf{分布式训练并非
-"越多卡越快"}，只有当单步计算足够重（大模型、大 batch）使通信开销被摊薄时，扩展性才好；
-在 GPU + 高速互联（NVLink/RDMA）环境下，AllReduce 开销占比会大幅下降，数据并行的扩展性
-才能接近线性。理解"计算-通信比"是设计分布式训练系统的核心。
+本实验取得了 \textbf{1.86$\times$} 的加速比（扩展效率约 93\%），相当接近理想的 2$\times$。
+这与 A-3 中 Spark "2 executor 反而更慢"形成鲜明对比，原因正是\textbf{计算-通信比}不同：
+MNIST CNN 每个 step 的前向/反向计算（约 120 万参数）在 CPU 上耗时可观，而每步的梯度
+AllReduce 只需同步同样大小的梯度张量，\textbf{计算时间远大于通信时间}，因此并行计算的
+收益足以摊薄通信开销，扩展性接近线性；而 A-3 的聚合查询数据极小、计算极轻，通信开销
+占了主导，于是并行不升反降。
+
+未达到完美 2$\times$ 的约 7\% 差距，来自每步 gloo over TCP 的 AllReduce 通信、进程会合、
+barrier 同步与数据加载等无法并行的串行部分（Amdahl 定律的 $1-p$）。由此可得出一个重要
+判断：\textbf{分布式训练并非"越多节点越快"，其扩展上限由计算-通信比决定}。若改用 GPU +
+高速互联（NVLink/RDMA），单步计算更快、AllReduce 更高效，但要维持高扩展效率往往还需
+增大 batch size 以保证每步计算量。理解并优化"计算-通信比"，是设计高效分布式训练系统的
+核心，也是本实验给我的最大启发。
