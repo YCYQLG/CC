@@ -1,0 +1,38 @@
+# ── Redis Deployment（任务3：副本1，内存上限≤512Mi）──────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      imagePullSecrets:
+        - name: default-secret          # CCE 同账号 SWR 拉取凭据
+      containers:
+        - name: redis
+          image: swr.cn-north-4.myhuaweicloud.com/group17/redis:7-alpine
+          # 通过 Secret 注入密码，开启 AOF 持久化（任务4 PVC 验证依赖）
+          args: ["--requirepass", "$(REDIS_PASSWORD)", "--appendonly", "yes"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"           # ≤ 512Mi ✓

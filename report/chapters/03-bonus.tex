@@ -1,0 +1,148 @@
+\chapter{附加题}
+
+\section{附加题1：监控系统 Prometheus + Grafana}
+
+\subsection{部署}
+
+使用 \lstinline!kube-prometheus-stack! 离线 Helm Chart 在 monitoring 命名空间部署
+Prometheus + Grafana。为适配 2 节点小集群并规避镜像问题，自定义 values 做了如下处理：
+所有镜像指向 SWR group17；关闭 \lstinline!kubeStateMetrics! 与 alertmanager 以省资源；
+覆盖 \lstinline!prometheusDefaultBaseImage! 避免主容器仍从 quay.io 拉取；由于离线包未
+提供 grafana 的 k8s-sidecar 镜像，关闭 sidecar 并通过 \lstinline!additionalDataSources!
+显式声明 Prometheus 数据源。部署后所有组件 Running（图~\ref{fig:monpods}）。
+
+\shot[0.8]{monitoring_pods.png}{monitoring 命名空间组件全部 Running}{fig:monpods}
+
+\subsection{Grafana Dashboard}
+
+在 Grafana 中构建仪表盘，展示\textbf{节点 CPU 利用率折线图}与\textbf{各 Pod 内存使用
+柱状图}（图~\ref{fig:grafana}）。关键 PromQL：
+\begin{lstlisting}[language=bash,caption={监控面板查询},captionpos=b]
+# 节点 CPU 利用率(%)
+100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)
+# 各 Pod 内存使用(MiB)
+topk(10, sum by(pod)(container_memory_working_set_bytes{namespace=~"default|monitoring"}) /1024/1024)
+\end{lstlisting}
+
+\shot{monitoring_grafana_dashboard.png}{Grafana 仪表盘：节点 CPU 折线 + Pod 内存柱状}{fig:grafana}
+
+\subsection{Prometheus Pull 采集原理与指标含义}
+
+\textbf{Pull 采集原理}：与传统监控的 Push 模式不同，Prometheus 采用\textbf{主动拉取
+（Pull）}模型。被监控对象（node-exporter、kubelet/cAdvisor、各 Pod）暴露一个
+\lstinline!/metrics! HTTP 端点，以文本格式输出当前指标快照；Prometheus Server 根据
+配置的 \lstinline!scrape_interval!（本例约 30\,s）周期性地向这些 target 发起 HTTP
+请求拉取指标，打上时间戳后存入本地时序数据库（TSDB）。在 K8s 中，Prometheus Operator
+通过 \lstinline!ServiceMonitor! CRD 自动发现需要抓取的 target，无需手改配置。Pull 模型
+的优点是：服务端集中控制采集频率、target 健康状态一目了然（抓取失败即可判定宕机）、
+便于本地调试（直接 curl /metrics）。
+
+\textbf{至少 3 个指标的含义}：
+\begin{itemize}
+  \item \lstinline!node_cpu_seconds_total!：counter 类型，节点各 CPU 核在各模式
+  （user/system/idle/iowait 等）累计运行的秒数。对其 \lstinline!idle! 模式求
+  \lstinline!rate! 再用 100 减去，即得节点 CPU 利用率百分比。
+  \item \lstinline!container_memory_working_set_bytes!：gauge 类型，容器当前的
+  工作集内存（活跃使用、不可被回收的内存），是判断 Pod 是否接近内存上限、是否会被
+  OOMKill 的关键指标。
+  \item \lstinline!kube_pod_status_phase! / \lstinline!up!：\lstinline!up! 为
+  Prometheus 对每个 target 抓取成功与否的探针（1=成功，0=失败），是判断监控目标
+  存活的最基础指标。
+\end{itemize}
+
+\section{附加题2：CI/CD 流水线}
+
+\subsection{流水线设计}
+
+基于 GitHub Actions 为第一部分应用搭建"代码提交 $\to$ 自动构建镜像 $\to$ 推送 SWR
+$\to$ 滚动更新 K8s Deployment"端到端流水线（\lstinline!.github/workflows/deploy.yml!）。
+触发后依次执行：Checkout 代码 $\to$ 用 git 短 SHA 生成镜像 Tag $\to$ 登录 SWR
+$\to$ \lstinline!docker build --provenance=false! 构建并推送后端镜像 $\to$ 用
+base64 解码的 KubeConfig 配置 kubectl $\to$ \lstinline!kubectl set image! 滚动更新
+backend Deployment 并验证。仓库 Secrets 配置了 \lstinline!SWR_AK!、\lstinline!SWR_SK!
+（SWR 登录密钥）、\lstinline!KUBE_CONFIG!（base64 编码的 kubeconfig）。流水线各阶段
+全部 Passed、Deployment 镜像 Tag 自动更新见图~\ref{fig:cicd1}、\ref{fig:cicd2}。
+
+\shot{cicd_actions_passed.png}{GitHub Actions 流水线各阶段全部 Passed}{fig:cicd1}
+\shot[0.8]{cicd_image_updated.png}{Deployment 镜像 Tag 已自动更新为 git SHA}{fig:cicd2}
+
+\subsection{持续集成 vs 持续部署 与 GitOps}
+
+\textbf{持续集成（CI）vs 持续部署（CD）}：CI 关注\textbf{代码合并到构建验证}这一段
+——每次提交自动触发编译、单元测试、构建镜像，尽早发现集成冲突，保证主干始终可构建；
+CD 关注\textbf{从通过验证的产物到部署上线}这一段——把构建好的镜像自动发布到测试/生产
+环境。简言之，CI 解决"代码能不能合到一起、构建出来"，CD 解决"构建好的东西怎么自动、
+可靠地上线"。本流水线的 build/push 属 CI，\lstinline!kubectl set image! 滚动更新属 CD。
+
+\textbf{GitOps 核心理念}：以 \textbf{Git 仓库作为系统期望状态的唯一可信源（single
+source of truth）}。所有基础设施与应用的声明式配置（YAML）都存在 Git 中，对系统的
+任何变更都通过 Git 提交（Pull Request）完成，再由自动化工具把集群\textbf{实际状态
+持续向 Git 中声明的期望状态收敛}。其价值在于：变更可审计、可回滚（git revert 即回滚）、
+环境可复现，把运维操作变成了代码评审与版本控制，极大提升了交付的可靠性与透明度。
+
+\section{附加题3：分布式 AI 训练（PyTorch DDP）}
+
+\subsection{实验设计}
+
+在 CCE 集群上用 PyTorch \textbf{DistributedDataParallel（DDP）} 训练经典 MNIST 手写
+数字识别 CNN（约 120 万参数），对比\textbf{单机}与\textbf{2 个 Worker Pod 分布式}的
+训练时间。采用 CPU 友好的 \textbf{gloo} 通信后端，通过 \lstinline!init_method='env://'!
+从环境变量（\lstinline!WORLD_SIZE!/\lstinline!RANK!/\lstinline!MASTER_ADDR!）完成
+rendezvous；分布式模式下用 headless Service 让 Worker 通过稳定 DNS 找到 rank0 的
+会合端口。MNIST 数据集已在构建镜像时烘焙到 \lstinline!/data!（节点无公网）。为公平对比
+强扩展性，每个 Worker 固定使用 1 个 CPU 线程：单机=1 Worker$\times$1 线程，
+分布式=2 Worker$\times$1 线程（合计 2 核）。
+
+\subsection{结果对比}
+
+\begin{table}[htbp]\centering
+\caption{单机 vs 分布式 DDP 训练时间对比（2 epochs，MNIST）}\label{tab:ddp}
+\begin{tabular}{lccc}
+\toprule
+模式 & Worker 数 & 训练时间(s) & 加速比 \\
+\midrule
+单机     & 1 & \texttt{<T1>} & 1.00$\times$ \\
+分布式 DDP & 2 & \texttt{<T2>} & \texttt{<S>}$\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+训练 Pod 运行情况与 \lstinline!##RESULT##! 输出见图~\ref{fig:ddppods}、\ref{fig:ddpresult}。
+两种模式最终测试准确率均约 \texttt{<ACC>}\%，说明分布式训练在缩短时间的同时保持了
+模型精度。
+
+\shot{ddp_pods.png}{分布式训练 master + worker Pod 运行}{fig:ddppods}
+\shot{ddp_result.png}{单机与分布式训练时间与准确率对比输出}{fig:ddpresult}
+
+\subsection{AllReduce 梯度同步机制}
+
+DDP 属于\textbf{数据并行}：完整的模型副本部署在每个 Worker 上，训练数据被
+\lstinline!DistributedSampler! 切分给不同 Worker，各自用本地 mini-batch 做前向与反向
+传播，得到\textbf{本地梯度}。关键在于反向传播后、参数更新前，所有 Worker 必须把各自的
+梯度\textbf{聚合求平均}，使每个副本以相同的"全局平均梯度"更新参数，从而保持各副本模型
+始终一致——这一步由 \textbf{AllReduce} 集合通信完成。
+
+AllReduce 把"归约（Reduce，如求和）"与"广播（Broadcast）"合二为一：所有进程的梯度
+张量按元素相加后，结果再分发回所有进程。高效实现常用 \textbf{Ring-AllReduce}：N 个
+Worker 组成环，梯度切成 N 份，经过 $2(N-1)$ 步的"scatter-reduce + all-gather"，每步
+只与相邻节点通信，使通信量与 N 基本无关、带宽利用最优。PyTorch DDP 还会在反向传播过程中
+\textbf{将梯度分桶（bucket）并与计算重叠}，边算边通信以隐藏延迟。
+
+\subsection{数据并行 vs 模型并行}
+
+\textbf{数据并行（Data Parallelism）}：每个设备持有\textbf{完整模型}、处理\textbf{不同
+数据分片}，通过 AllReduce 同步梯度。适合模型能放进单卡显存、但数据量大的场景，是目前
+最常用的并行方式（本实验即属此类）。\textbf{模型并行（Model Parallelism）}：把\textbf{单个
+模型}的不同层/张量切分到\textbf{不同设备}，一份数据依次/并行流经各设备。适合模型大到
+单卡放不下的场景（如超大语言模型），但设备间需传递中间激活值、通信更频繁、实现更复杂。
+二者并非互斥，超大模型常用"数据并行 + 张量并行 + 流水线并行"的混合策略。
+
+\subsection{批判性思考}
+
+本实验在 2 核 CPU 小规模下，分布式相对单机的加速比通常\textbf{达不到理想的 2$\times$}，
+原因与 A-3 的 Amdahl 分析一脉相承：MNIST 模型小、每步计算量有限，而每个 step 都要做一次
+跨 Pod 的梯度 AllReduce，gloo over TCP 的通信延迟在 CPU 集群上相对计算并不可忽略；此外
+还有数据加载、进程会合、barrier 同步等串行开销。这提示我们：\textbf{分布式训练并非
+"越多卡越快"}，只有当单步计算足够重（大模型、大 batch）使通信开销被摊薄时，扩展性才好；
+在 GPU + 高速互联（NVLink/RDMA）环境下，AllReduce 开销占比会大幅下降，数据并行的扩展性
+才能接近线性。理解"计算-通信比"是设计分布式训练系统的核心。

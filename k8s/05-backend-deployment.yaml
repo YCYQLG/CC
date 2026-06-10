@@ -1,0 +1,51 @@
+# ── 后端 Deployment（任务3：副本2，resources，ConfigMap+Secret 注入）─
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: default
+spec:
+  replicas: 2                       # ← 保持 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      imagePullSecrets:
+        - name: default-secret
+      containers:
+        - name: backend
+          image: swr.cn-north-4.myhuaweicloud.com/group17/backend:v1
+          ports:
+            - containerPort: 5000
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          envFrom:
+            - configMapRef:
+                name: backend-config    # 注入 REDIS_HOST / REDIS_PORT / APP_ENV
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret    # 注入 Redis 密码（无明文）
+                  key: password
+          readinessProbe:
+            httpGet:
+              path: /api/ping
+              port: 5000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/ping
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 15

@@ -1,0 +1,92 @@
+# 附加题3：分布式 DDP 训练（WORLD_SIZE=2，master rank0 + worker rank1，gloo/CPU）
+# headless Service 让 worker 通过稳定 DNS 'ddp-master' 找到 rank0 的 rendezvous 端口。
+apiVersion: v1
+kind: Service
+metadata:
+  name: ddp-master
+  namespace: default
+spec:
+  clusterIP: None                 # headless：DNS 直接解析到 master Pod IP
+  selector:
+    app: ddp
+    role: master
+  ports:
+    - name: dist
+      port: 29500
+      targetPort: 29500
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ddp-master
+  namespace: default
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: ddp
+        role: master
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: default-secret
+      containers:
+        - name: trainer
+          image: swr.cn-north-4.myhuaweicloud.com/group17/pytorch-ddp:v1
+          env:
+            - { name: WORLD_SIZE, value: "2" }
+            - { name: RANK, value: "0" }
+            - { name: MASTER_ADDR, value: "ddp-master" }
+            - { name: MASTER_PORT, value: "29500" }
+            - { name: THREADS, value: "1" }
+            - { name: EPOCHS, value: "2" }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "1Gi"
+            limits:
+              cpu: "1500m"
+              memory: "2Gi"
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ddp-worker
+  namespace: default
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: ddp
+        role: worker
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: default-secret
+      containers:
+        - name: trainer
+          image: swr.cn-north-4.myhuaweicloud.com/group17/pytorch-ddp:v1
+          # 等待 master 的 rendezvous 端口就绪后再启动，避免启动竞态
+          command: ["sh", "-c"]
+          args:
+            - |
+              until python -c "import socket; socket.create_connection(('ddp-master',29500),2)" 2>/dev/null; do
+                echo "waiting for master rendezvous..."; sleep 2;
+              done
+              exec python /app/train_ddp.py
+          env:
+            - { name: WORLD_SIZE, value: "2" }
+            - { name: RANK, value: "1" }
+            - { name: MASTER_ADDR, value: "ddp-master" }
+            - { name: MASTER_PORT, value: "29500" }
+            - { name: THREADS, value: "1" }
+            - { name: EPOCHS, value: "2" }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "1Gi"
+            limits:
+              cpu: "1500m"
+              memory: "2Gi"

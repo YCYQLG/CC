@@ -1,0 +1,48 @@
+{
+  "dashboard": {
+    "uid": "cc-monitor",
+    "title": "云计算课程设计 · 集群监控",
+    "tags": ["course-design"],
+    "timezone": "browser",
+    "schemaVersion": 39,
+    "version": 1,
+    "time": { "from": "now-30m", "to": "now" },
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "type": "timeseries",
+        "title": "节点 CPU 利用率 (%)",
+        "gridPos": { "h": 10, "w": 12, "x": 0, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "promds" },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "100 - (avg by(instance)(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+            "legendFormat": "{{instance}}"
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100 } },
+        "options": { "legend": { "displayMode": "table", "placement": "bottom" } }
+      },
+      {
+        "id": 2,
+        "type": "barchart",
+        "title": "各 Pod 内存使用 Top10 (MiB)",
+        "gridPos": { "h": 10, "w": 12, "x": 12, "y": 0 },
+        "datasource": { "type": "prometheus", "uid": "promds" },
+        "targets": [
+          {
+            "refId": "A",
+            "expr": "topk(10, sum by(pod)(container_memory_working_set_bytes{namespace=~\"default|monitoring|spark-operator\", pod!=\"\"}) / 1024 / 1024)",
+            "legendFormat": "{{pod}}",
+            "instant": true
+          }
+        ],
+        "fieldConfig": { "defaults": { "unit": "decmbytes" } },
+        "options": { "xField": "pod", "orientation": "horizontal" }
+      }
+    ]
+  },
+  "overwrite": true
+}

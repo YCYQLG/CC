@@ -1,0 +1,28 @@
+# ── 前端 Nginx 配置 ConfigMap（任务5：以 Volume 形式挂载）──────────
+# 演示步骤9：把 backend-internal:5000 改成 :5001 后 apply，
+# 删除前端 Pod，exec 进去 cat 验证文件已同步更新。
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-conf
+  namespace: default
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+
+        # 静态前端页面（含学号姓名）
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            try_files $uri $uri/ /index.html;
+        }
+
+        # 反向代理到后端 Service（任务5：upstream 后端地址）
+        location /api/ {
+            proxy_pass http://backend-internal:5000;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }

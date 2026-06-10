@@ -1,0 +1,35 @@
+\contentsline {chapter}{\numberline {第1章\hspace {.3em}}华为云环境信息}{1}{chapter.1}%
+\contentsline {section}{\numberline {1.1}设计目标与总体架构}{1}{section.1.1}%
+\contentsline {section}{\numberline {1.2}华为云服务与账号信息}{1}{section.1.2}%
+\contentsline {section}{\numberline {1.3}CCE 集群与节点规格}{2}{section.1.3}%
+\contentsline {chapter}{\numberline {第2章\hspace {.3em}}第一部分：云计算平台搭建}{3}{chapter.2}%
+\contentsline {section}{\numberline {2.1}任务1：应用容器化}{3}{section.2.1}%
+\contentsline {subsection}{\numberline {2.1.1}后端镜像（多阶段构建 + 自选包）}{3}{subsection.2.1.1}%
+\contentsline {subsection}{\numberline {2.1.2}前端镜像（含学号姓名）}{3}{subsection.2.1.2}%
+\contentsline {subsection}{\numberline {2.1.3}本地联调与推送 SWR}{4}{subsection.2.1.3}%
+\contentsline {section}{\numberline {2.2}任务2：CCE 集群搭建}{5}{section.2.2}%
+\contentsline {section}{\numberline {2.3}任务3：应用部署}{5}{section.2.3}%
+\contentsline {section}{\numberline {2.4}任务4：持久化存储}{6}{section.2.4}%
+\contentsline {section}{\numberline {2.5}任务5：ConfigMap Volume 挂载}{7}{section.2.5}%
+\contentsline {subsection}{\numberline {2.5.1}Volume 挂载与 envFrom 两种方式的适用场景}{8}{subsection.2.5.1}%
+\contentsline {section}{\numberline {2.6}任务6：HPA 弹性伸缩}{8}{section.2.6}%
+\contentsline {subsection}{\numberline {2.6.1}结果分析：扩容延迟、冷却时间与降本价值}{10}{subsection.2.6.1}%
+\contentsline {chapter}{\numberline {第3章\hspace {.3em}}第二部分：Spark 大数据分析}{12}{chapter.3}%
+\contentsline {section}{\numberline {3.1}A-0：环境部署}{12}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}Spark Operator 安装}{12}{subsection.3.1.1}%
+\contentsline {subsection}{\numberline {3.1.2}关键问题：Executor 因 CPU 请求不足无法调度}{12}{subsection.3.1.2}%
+\contentsline {subsection}{\numberline {3.1.3}WordCount 验证}{12}{subsection.3.1.3}%
+\contentsline {section}{\numberline {3.2}A-1：数据清洗}{13}{section.3.2}%
+\contentsline {section}{\numberline {3.3}A-2：Spark SQL 统计分析}{14}{section.3.3}%
+\contentsline {subsection}{\numberline {3.3.1}Q1：各电影类型数量与平均评分（GROUP BY）}{14}{subsection.3.3.1}%
+\contentsline {subsection}{\numberline {3.3.2}Q2：高分电影 Top10（ORDER BY Top-N）}{14}{subsection.3.3.2}%
+\contentsline {subsection}{\numberline {3.3.3}Q3：各年代电影数量与平均评分趋势（时间维度）}{15}{subsection.3.3.3}%
+\contentsline {subsection}{\numberline {3.3.4}Q4：每个类型评分最高的电影（窗口函数）}{15}{subsection.3.3.4}%
+\contentsline {subsection}{\numberline {3.3.5}Q5：高于本年代平均分的经典电影（JOIN）}{16}{subsection.3.3.5}%
+\contentsline {section}{\numberline {3.4}A-3：性能对比与 Amdahl 分析}{16}{section.3.4}%
+\contentsline {chapter}{\numberline {第4章\hspace {.3em}}占位章节 03-bonus}{19}{chapter.4}%
+\contentsline {chapter}{\numberline {第5章\hspace {.3em}}总结与收获}{20}{chapter.5}%
+\contentsline {chapter}{\numberline {第6章\hspace {.3em}}附录}{21}{chapter.6}%
+\contentsline {section}{\numberline {6.1}代码仓库}{21}{section.6.1}%
+\contentsline {section}{\numberline {6.2}关键资源清单}{21}{section.6.2}%
+\contentsline {section}{\numberline {6.3}镜像清单（SWR group17）}{21}{section.6.3}%

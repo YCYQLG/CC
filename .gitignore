@@ -1,0 +1,8 @@
+# 凭据 / 本地产物，不入库
+*.kubeconfig
+kubeconfig*
+.secret/
+spark/perf_results.json
+__pycache__/
+*.pyc
+.DS_Store

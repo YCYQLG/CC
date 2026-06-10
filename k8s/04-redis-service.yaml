@@ -1,0 +1,13 @@
+# ── Redis Service（任务3：集群内部访问 ClusterIP）─────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-svc
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379

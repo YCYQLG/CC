@@ -1,0 +1,31 @@
+# 附加题3：单机基线训练（WORLD_SIZE=1，1 个 worker，1 线程）
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: ddp-single
+  namespace: default
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: ddp-single
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: default-secret
+      containers:
+        - name: trainer
+          image: swr.cn-north-4.myhuaweicloud.com/group17/pytorch-ddp:v1
+          env:
+            - { name: WORLD_SIZE, value: "1" }
+            - { name: RANK, value: "0" }
+            - { name: THREADS, value: "1" }
+            - { name: EPOCHS, value: "2" }
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "1Gi"
+            limits:
+              cpu: "1500m"
+              memory: "2Gi"

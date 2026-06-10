@@ -1,0 +1,60 @@
+name: CI/CD - 构建并部署后端
+
+# 代码提交 -> 自动构建镜像 -> 推送 SWR -> 滚动更新 K8s Deployment
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: {}
+
+env:
+  SWR_REGION: cn-north-4
+  SWR_REGISTRY: swr.cn-north-4.myhuaweicloud.com
+  SWR_ORG: group17
+  IMAGE: backend
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 代码
+        uses: actions/checkout@v4
+
+      - name: 生成镜像 Tag（git 短 SHA）
+        id: vars
+        run: echo "tag=$(echo ${GITHUB_SHA} | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      - name: 登录华为云 SWR
+        run: |
+          echo "${{ secrets.SWR_SK }}" | docker login \
+            -u "${{ env.SWR_REGION }}@${{ secrets.SWR_AK }}" \
+            --password-stdin ${{ env.SWR_REGISTRY }}
+
+      - name: 构建并推送后端镜像
+        run: |
+          IMG=${{ env.SWR_REGISTRY }}/${{ env.SWR_ORG }}/${{ env.IMAGE }}
+          # Docker 29.x 默认 OCI manifest，SWR 不兼容，加 --provenance=false
+          docker build --provenance=false \
+            -t $IMG:${{ steps.vars.outputs.tag }} -t $IMG:latest ./backend
+          docker push $IMG:${{ steps.vars.outputs.tag }}
+          docker push $IMG:latest
+
+      - name: 安装 kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: 配置 kubeconfig
+        run: |
+          mkdir -p "$HOME/.kube"
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > "$HOME/.kube/config"
+
+      - name: 滚动更新 Deployment 并验证
+        run: |
+          IMG=${{ env.SWR_REGISTRY }}/${{ env.SWR_ORG }}/${{ env.IMAGE }}
+          kubectl set image deployment/backend backend=$IMG:${{ steps.vars.outputs.tag }}
+          kubectl rollout status deployment/backend --timeout=150s
+          echo "===== 当前 Deployment 镜像 ====="
+          kubectl get deployment backend -o=jsonpath='{.spec.template.spec.containers[0].image}'
+          echo ""
+          kubectl get pods -l app=backend -o wide

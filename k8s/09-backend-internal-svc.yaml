@@ -1,0 +1,13 @@
+# ── 后端内部 Service（任务5：供前端 Nginx 反向代理，ClusterIP:5000）──
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-internal
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 5000
+      targetPort: 5000

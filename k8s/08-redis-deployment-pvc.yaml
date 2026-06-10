@@ -1,0 +1,46 @@
+# ── Redis Deployment（任务4：挂载 PVC 到 /data，数据持久化）─────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: default
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate                   # RWO 云硬盘：重建时先卸载旧 Pod，避免多挂载冲突
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      imagePullSecrets:
+        - name: default-secret
+      containers:
+        - name: redis
+          image: swr.cn-north-4.myhuaweicloud.com/group17/redis:7-alpine
+          args: ["--requirepass", "$(REDIS_PASSWORD)", "--appendonly", "yes"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-secret
+                  key: password
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
+          volumeMounts:
+            - name: redis-data        # ← 任务4：挂载 PVC 到 /data
+              mountPath: /data
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data-pvc

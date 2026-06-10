@@ -1,0 +1,92 @@
+# kube-prometheus-stack 自定义 values（附加题1）
+# 已将所有镜像指向 SWR group17（cn-north-4），并规避问题合集中的已知坑：
+#  - kubeStateMetrics 关闭（SWR 中该镜像不可用，且本题只需节点CPU/Pod内存）
+#  - prometheusDefaultBaseImage 覆盖，避免主容器仍从 quay.io 拉取
+#  - kube-webhook-certgen 覆盖，避免 ghcr.io 拉取失败
+grafana:
+  enabled: true
+  adminPassword: "group17."
+  service:
+    type: ClusterIP
+  image:
+    registry: swr.cn-north-4.myhuaweicloud.com
+    repository: group17/grafana
+    tag: "12.4.3"
+  # 离线包未提供 k8s-sidecar 镜像，关闭 sidecar，改为显式声明 Prometheus 数据源
+  sidecar:
+    dashboards:
+      enabled: false
+    datasources:
+      enabled: false
+  additionalDataSources:
+    - name: Prometheus
+      type: prometheus
+      access: proxy
+      url: http://monitoring-kube-prometheus-prometheus:9090
+      isDefault: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 350Mi
+
+prometheus:
+  enabled: true
+  service:
+    type: ClusterIP
+  prometheusSpec:
+    retention: 2d
+    image:
+      registry: swr.cn-north-4.myhuaweicloud.com
+      repository: group17/prometheus
+      tag: "v3.11.2"
+    # 2 节点小集群，给 Prometheus 设置较小的资源请求避免调度不上
+    resources:
+      requests:
+        cpu: 100m
+        memory: 400Mi
+      limits:
+        cpu: 500m
+        memory: 900Mi
+  thanosService:
+    enabled: false
+  thanosServiceExternal:
+    enabled: false
+
+# 本附加题只需节点CPU折线 + Pod内存柱状，关闭 alertmanager 省资源
+alertmanager:
+  enabled: false
+
+prometheusOperator:
+  image:
+    registry: swr.cn-north-4.myhuaweicloud.com
+    repository: group17/prometheus-operator
+    tag: "v0.90.1"
+  prometheusDefaultBaseImage: group17/prometheus
+  prometheusDefaultBaseImageRegistry: swr.cn-north-4.myhuaweicloud.com
+  admissionWebhooks:
+    patch:
+      image:
+        registry: swr.cn-north-4.myhuaweicloud.com
+        repository: group17/kube-webhook-certgen
+        tag: "1.8.1"
+  prometheusConfigReloader:
+    image:
+      registry: swr.cn-north-4.myhuaweicloud.com
+      repository: group17/prometheus-config-reloader
+      tag: "v0.90.1"
+
+kubeStateMetrics:
+  enabled: false
+
+prometheus-node-exporter:
+  image:
+    registry: swr.cn-north-4.myhuaweicloud.com
+    repository: group17/node-exporter
+    tag: "v1.11.1"
+
+global:
+  imagePullSecrets:
+    - name: default-secret

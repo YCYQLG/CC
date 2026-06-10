@@ -1,0 +1,17 @@
+# ── 后端 Service（任务3：对外暴露，自动创建华为云公网 ELB）──────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+  namespace: default
+  annotations:
+    kubernetes.io/elb.class: union            # 共享型 ELB
+    # 自动创建公网 ELB + 5Mbit/s 弹性公网 IP
+    kubernetes.io/elb.autocreate: '{"type":"public","bandwidth_name":"cce-backend-bw","bandwidth_chargemode":"bandwidth","bandwidth_size":5,"bandwidth_sharetype":"PER","eip_type":"5_bgp"}'
+spec:
+  type: LoadBalancer
+  selector:
+    app: backend
+  ports:
+    - port: 80
+      targetPort: 5000

@@ -1,0 +1,25 @@
+# ── 任务5 步骤9：把后端端口 5000 改成 5001，演示 ConfigMap 热更新到卷 ──
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-conf
+  namespace: default
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            try_files $uri $uri/ /index.html;
+        }
+
+        # 后端端口已从 5000 修改为 5001（演示 ConfigMap 修改后挂载文件同步更新）
+        location /api/ {
+            proxy_pass http://backend-internal:5001;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+        }
+    }

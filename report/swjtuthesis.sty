@@ -1,0 +1,286 @@
+%
+% Copyright (C) 2026 by Shitao Tang <tangshitao17 AT gmail.com>
+%
+% This file may be distributed and/or modified under the
+% conditions of the LaTeX Project Public License, either version 1.3c
+% of this license or (at your option) any later version.
+% The latest version of this license is in
+%    https://www.latex-project.org/lppl.txt
+% and version 1.3c or later is part of all distributions of LaTeX
+% version 2008 or later.
+%
+
+\makeatletter
+
+% 目录
+\renewcommand{\contentsname}{目\hspace{1em}录}
+\renewcommand{\listfigurename}{图目录}
+\renewcommand{\listtablename}{表目录}
+
+\def\swjtu@dottedtocline#1#2#3#4#5{%
+  \ifnum \c@tocdepth >\m@ne
+    \addpenalty{-\@highpenalty}%
+    \vskip \z@ \@plus.2\p@
+    
+    %% 页码数字box宽度，1em宽适合两位数
+    %% 如果论文超过99页，可把1em改成1.5em
+    \renewcommand\@pnumwidth{1em} 
+    %% 右边距稍微留宽一点，防止页码贴边
+    \renewcommand\@tocrmarg{2.5em}
+    
+    {\leftskip #1\relax \rightskip \@tocrmarg \parfillskip -\rightskip
+     \parindent #1\relax\@afterindenttrue
+     \interlinepenalty\@M
+     \leavevmode
+     \@tempdima #2\relax
+     \advance\leftskip \@tempdima \null\nobreak\hskip -\leftskip
+     {#5#3}\nobreak
+     %% 点线设置
+     \leaders\hbox{$\m@th\mkern 1mu \raisebox{0.5ex}{.} \mkern 1mu$}\hfill
+     \nobreak
+     %% 页码右对齐
+     \hb@xt@\@pnumwidth{\hfil\normalfont \normalcolor #4}%
+     \par}%
+  \fi}
+
+%% 三级目录缩进及字体设置
+\renewcommand*\l@chapter[2]{%
+  \addpenalty{-\@highpenalty}%
+  \swjtu@dottedtocline{0em}{4em}{#1}{#2}{\heiti}
+}
+\renewcommand*\l@section[2]{%
+  \swjtu@dottedtocline{1.7em}{2.3em}{#1}{#2}{\relax}
+}
+\renewcommand*\l@subsection[2]{%
+  \swjtu@dottedtocline{4.0em}{2.2em}{#1}{#2}{\relax}
+}
+
+%% 图表目录，减小行间距
+%% 使用"\strut"避免不同章节图entry之间的额外行间距
+\renewcommand*\l@figure[2]{%
+  \vskip -6bp%
+  \swjtu@dottedtocline{0em}{3.5em}{#1}{#2}{\relax\strut}
+}
+\renewcommand*\l@table[2]{%
+  \vskip -6bp%
+  \swjtu@dottedtocline{0em}{3.5em}{#1}{#2}{\relax\strut}
+}
+
+\let\swjtu@oldlistoffigures\listoffigures
+\renewcommand{\listoffigures}{%
+  \begingroup
+  \let\oldnumberline\numberline
+  \renewcommand{\numberline}[1]{\figurename~##1\hspace{0.5em}} 
+  \def\addvspace##1{} 
+  \swjtu@oldlistoffigures 
+  \endgroup
+}
+
+\let\swjtu@oldlistoftables\listoftables
+\renewcommand{\listoftables}{%
+  \begingroup 
+  \let\oldnumberline\numberline
+  \renewcommand{\numberline}[1]{\tablename~##1\hspace{0.5em}}
+  \def\addvspace##1{} 
+  \swjtu@oldlistoftables
+  \endgroup
+}
+
+% 图表caption
+\RequirePackage{caption}
+\RequirePackage{booktabs}
+\RequirePackage{graphicx}
+\RequirePackage{longtable}
+\RequirePackage{array}
+\RequirePackage{multirow}
+\RequirePackage{tabularx}
+\RequirePackage{makecell}
+\RequirePackage{subcaption}
+\newcolumntype{Y}{>{\centering\arraybackslash}X}
+
+\renewcommand{\thefigure}{\thechapter-\arabic{figure}}
+\renewcommand{\thetable}{\thechapter-\arabic{table}}
+
+\DeclareCaptionFont{swjtu_caption_font}{%
+  \zihao{5}%
+  \linespread{1.0}\selectfont%
+}
+
+\captionsetup{
+  font = swjtu_caption_font,
+  labelsep = quad,           %% 图序与图题文字之间空1个汉字符的宽度
+  justification = justified, %% 多行时两端对齐
+  singlelinecheck = true,    %% 单行自动居中
+  margin = {4\ccwd, 4\ccwd}  %% 多行时左右各缩进4字符 (\ccwd 是当前字宽)
+}
+\captionsetup[figure]{
+  position = bottom,
+  skip = 6pt,
+  belowskip = -6pt
+}
+\captionsetup[table]{
+  position = top,
+  skip = 6pt,
+  belowskip = 12pt
+}
+
+%% 三线表粗细
+\setlength{\heavyrulewidth}{1.5pt}
+\setlength{\lightrulewidth}{1pt}
+\setlength{\cmidrulewidth}{1pt}
+
+%% 表格内文字样式
+\newcommand{\tablefont}{\zihao{5}\linespread{1.32}\selectfont}
+\renewcommand{\arraystretch}{1.0}
+
+%% 浮动体间距控制
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt} % 浮动体顶部/底部与正文距离
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}    % 浮动体在正文中间时的距离
+
+% 公式
+\renewcommand{\theequation}{\thechapter-\arabic{equation}}
+%% 允许公式跨页
+\allowdisplaybreaks[4]
+
+% 脚注
+\RequirePackage[perpage,bottom]{footmisc}
+\interfootnotelinepenalty=10000
+
+\RequirePackage{iftex}
+\ifXeTeX
+  \xeCJKDeclareCharClass{CJK}{"2460->"2473}
+\fi
+\ifLuaTeX
+  \ltjdefcharrange{6}{"2460-"2473}
+\fi
+
+\newcommand\swjtu@textcircled[1]{%
+  \ifnum\value{#1} < 21
+    {\symbol{\numexpr\value{#1} + "245F\relax}}%
+  \else
+    \textcircled{\the\value{#1}}%
+  \fi
+}
+
+\newcommand\swjtu@circled[1]{%
+  \ifnum#1 < 21
+    {\symbol{\numexpr#1 + "245F\relax}}%
+  \else
+    \textcircled{#1}%
+  \fi
+}
+
+\renewcommand{\thefootnote}{\swjtu@textcircled{footnote}}
+
+\newcommand{\textcirclednum}[1]{%
+  \expandafter\swjtu@circled\expandafter{#1}%
+}
+
+\renewcommand\@makefntext[1]{%
+  \zihao{-5}%
+  \linespread{1.0}\selectfont%
+  \noindent%
+  \hangindent=1.5\ccwd%
+  \hangafter=1%
+  \makebox[1.0\ccwd][l]{\@thefnmark}%
+  \hspace{0.5\ccwd}%
+  #1% 输出正文
+  \par%
+}
+
+% 列表 (itemize)
+\RequirePackage{enumerate} %% 其后可接选项[a,A,i,I,1]
+\RequirePackage{enumitem}
+\setenumerate[1]{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=3pt,itemindent=1em}
+\setitemize[1]{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=3pt,itemindent=0.5em}
+\setdescription{itemsep=0pt,partopsep=0pt,parsep=\parskip,topsep=3pt}
+
+% 算法
+\RequirePackage[ruled,linesnumbered,algochapter]{algorithm2e}
+
+\SetAlgorithmName{算法}{算法}{算法清单}
+
+\SetAlCapSkip{6bp}
+\SetAlCapFnt{\zihao{5} \relax\bfseries}
+\SetAlCapNameFnt{\zihao{5}\relax\bfseries}
+\SetAlCapSty{} %% 清除默认样式，完全由上面控制
+
+\SetAlFnt{\zihao{5}\linespread{1.15}\selectfont}
+\SetAlgoCaptionSeparator{\unskip\hspace*{1em}}
+
+\renewcommand*\l@algocf[2]{%
+  \swjtu@dottedtocline{0em}{3.5em}{#1}{#2}{\relax\strut}
+}
+
+%% 放到 Document 开始时执行，防止定义的“2-1”被宏包覆盖为“2.1”
+\AtBeginDocument{%
+  \ifdefined\counterwithin
+    \counterwithin{algocf}{chapter}
+  \fi
+
+  \renewcommand{\thealgocf}{\thechapter-\arabic{algocf}}
+}
+
+% 代码
+\RequirePackage{listings}
+\RequirePackage{xcolor}
+
+\RequirePackage{iftex}
+\ifXeTeX
+  \IfFontExistsTF{Inconsolata}{
+    \newfontfamily\swjtu@monofont{Inconsolata}[Scale=MatchLowercase]
+  }{
+    \newcommand{\swjtu@monofont}{\ttfamily}
+    \ClassWarning{swjtuthesis}{Font 'Inconsolata' not found. Using default typewriter font.}
+  }
+\else
+  \newcommand{\swjtu@monofont}{\ttfamily}
+\fi
+
+%% 定义标识符颜色
+\definecolor{swjtu@code@keyword}{RGB}{127,0,127}
+\definecolor{swjtu@code@comment}{gray}{0.5}
+\definecolor{swjtu@code@string} {RGB}{192,96,0}
+\definecolor{swjtu@code@struct} {RGB}{0,128,128} 
+\definecolor{swjtu@code@macro}  {RGB}{0,0,255}
+
+%% 定义C语言风格
+\lstdefinelanguage{swjtu@c}{
+  language=C,
+  morekeywords=[1]{int, void, const, restrict},
+  keywordstyle=[1]\color{swjtu@code@keyword},
+  morekeywords=[2]{pthread_t, pthread_attr_t, clockid_t, timespec, va_list},
+  keywordstyle=[2]\color{swjtu@code@struct},
+  morekeywords=[3]{VDSO_CGT_VER, VDSO_CGT_SYM, VDSO_CGT32_VER, VDSO_CGT32_SYM, 
+                   VDSO_CGT_WORKAROUND, EINVAL, ENOSYS, SYS_clock_gettime, 
+                   SYS_gettimeofday, CLOCK_REALTIME},
+  keywordstyle=[3]\color{swjtu@code@macro},
+  sensitive=true,
+}
+
+%% 定义Rust语言风格
+\lstdefinelanguage{swjtu@rust}{
+  morekeywords=[1]{fn, let, mut, pub, impl, use, mod, extern, crate, as, match, 
+                   if, else, while, loop, for, in, return, unsafe, static, const, 
+                   ref, unwrap},
+  keywordstyle=[1]\color{swjtu@code@keyword},
+  morekeywords=[2]{i8, i16, i32, i64, u8, u16, u32, u64, isize, usize, f32, f64, 
+                   bool, char, str, String, size_t, c_char, c_int, c_void, c_long, 
+                   c_short, c_uchar, c_uint, c_ulong, c_ushort, pthread_cond_t, 
+                   pthread_mutex_t, timespec, THREAD_STATE, Option, Result, Vec, 
+                   Box, pthread_t, pthread_attr_t},
+  keywordstyle=[2]\color{swjtu@code@struct},
+  morekeywords=[3]{syscall, macro_rules, weak_alias, addr_of_mut, read_volatile, 
+                   write_volatile, null_mut, null, write},
+  keywordstyle=[3]\color{swjtu@code@macro},
+  sensitive=true,
+  comment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  commentstyle=\color{swjtu@code@comment},
+  stringstyle=\color{swjtu@code@string},
+  morestring=[b]",
+}
+
+%%
+
+\makeatother
