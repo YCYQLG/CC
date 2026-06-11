@@ -6,6 +6,7 @@ spark/perf_results.json
 __pycache__/
 *.pyc
 .DS_Store
+research-writing-skill/
 
 # LaTeX 构建产物
 report/
