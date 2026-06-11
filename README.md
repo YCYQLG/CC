@@ -1,6 +1,5 @@
 # 云计算技术课程设计 · group17
 
-> 学号 2023112594　姓名 陶秋源　班级 计算机科学与技术04班
 > 华为云 CCE + SWR + OBS + ELB ｜ Region: cn-north-4
 
 基于华为云 CCE 搭建 Kubernetes 平台，部署「Flask + Redis」两层 Web 应用，并在其上运行

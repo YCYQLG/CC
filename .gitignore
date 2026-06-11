@@ -8,13 +8,7 @@ __pycache__/
 .DS_Store
 
 # LaTeX 构建产物
-report/*.aux
-report/chapters/*.aux
-report/*.log
-report/*.toc
-report/*.out
-report/*.synctex.gz
-report/missfont.log
+report/
 
 # 含凭据的一次性脚本，不入库
 scripts/set_github_secrets.py
